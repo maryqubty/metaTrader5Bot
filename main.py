@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -108,7 +108,6 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("Incoming message from chat_id: %s", update.effective_chat.id)
     if not _is_allowed(update):
         return
 
@@ -136,7 +135,7 @@ async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     order_results, summary = trader.place_two_orders(action, price1, price2, tp, sl)
 
-    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     for row in order_results:
         _log_trade({
             "timestamp": ts,
@@ -154,10 +153,6 @@ async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(summary)
 
 
-async def log_all_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.info("RAW UPDATE: %s", update)
-
-
 def main() -> None:
     app = (
         Application.builder()
@@ -166,7 +161,6 @@ def main() -> None:
         .build()
     )
 
-    app.add_handler(MessageHandler(filters.ALL, log_all_updates), group=-1)
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("trades", cmd_trades))
