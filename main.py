@@ -108,6 +108,7 @@ async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("Incoming message from chat_id: %s", update.effective_chat.id)
     if not _is_allowed(update):
         return
 
@@ -153,6 +154,10 @@ async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(summary)
 
 
+async def log_all_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info("RAW UPDATE: %s", update)
+
+
 def main() -> None:
     app = (
         Application.builder()
@@ -161,6 +166,7 @@ def main() -> None:
         .build()
     )
 
+    app.add_handler(MessageHandler(filters.ALL, log_all_updates), group=-1)
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("trades", cmd_trades))
