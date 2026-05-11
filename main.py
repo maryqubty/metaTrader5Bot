@@ -24,18 +24,43 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 ALLOWED_CHAT_ID = int(os.environ["ALLOWED_CHAT_ID"])
 
-ALERT_RE = re.compile(
-    r"^GOLD\s+(BUY|SELL)\s+([\d.]+)\s*-\s*([\d.]+),?\s*TP:\s*([\d.]+),?\s*SL:\s*([\d.]+)$",
-    re.IGNORECASE,
-)
+_HEADER_RE = re.compile(r"GOLD\s+(BUY|SELL)\s+([\d.]+)\s*-\s*([\d.]+)", re.IGNORECASE)
+_TP_RE = re.compile(r"TP\s*:\s*([\d.]+)", re.IGNORECASE)
+_SL_RE = re.compile(r"SL\s*:\s*([\d.]+)", re.IGNORECASE)
+
+
+def _parse_alert(text: str):
+    header = _HEADER_RE.search(text)
+    if not header:
+        return None
+
+    action = header.group(1).upper()
+    price1 = float(header.group(2))
+    price2 = float(header.group(3))
+
+    tp_matches = _TP_RE.findall(text)
+    if not tp_matches:
+        return None
+    tp = float(tp_matches[0])
+
+    sl_match = _SL_RE.search(text)
+    if not sl_match:
+        return None
+    sl = float(sl_match.group(1))
+
+    return action, price1, price2, tp, sl
+
 
 HELP_TEXT = (
     "MetaTrader5 GOLD Trading Bot\n\n"
     "Alert format:\n"
-    "  GOLD BUY 2650 - 2660, TP: 2680, SL: 2635\n"
-    "  GOLD SELL 4678 - 4793, TP: 4671, SL: 4698\n\n"
-    "This places TWO pending orders — one at each entry price — "
-    "both with the same TP and SL.\n\n"
+    "  ♾ 🥇 GOLD SELL 4676 - 4781\n"
+    "  ➡️TP : 4669\n"
+    "  ➡️TP : 4656\n"
+    "  ➡️TP : OPEN\n"
+    "  ⛔️SL : 4696\n\n"
+    "Uses the FIRST TP and the SL. Extra TPs and OPEN are ignored.\n"
+    "Places TWO pending orders — one at each entry price.\n\n"
     "Commands:\n"
     "  /status  — MT5 connection, balance & equity\n"
     "  /trades  — last 5 executed trades\n"
@@ -112,21 +137,19 @@ async def handle_alert(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     text = (update.message.text or "").strip()
-    match = ALERT_RE.match(text)
+    parsed = _parse_alert(text)
 
-    if not match:
+    if not parsed:
         if re.search(r"\b(BUY|SELL|GOLD)\b", text, re.IGNORECASE):
             await update.message.reply_text(
                 "Unrecognised format. Expected:\n"
-                "GOLD BUY 2650 - 2660, TP: 2680, SL: 2635"
+                "♾ 🥇 GOLD SELL 4676 - 4781\n"
+                "➡️TP : 4669\n"
+                "⛔️SL : 4696"
             )
         return
 
-    action = match.group(1).upper()
-    price1 = float(match.group(2))
-    price2 = float(match.group(3))
-    tp = float(match.group(4))
-    sl = float(match.group(5))
+    action, price1, price2, tp, sl = parsed
 
     status_msg = trader.get_status()
     if "Not connected" in status_msg or "not connected" in status_msg:
