@@ -3,3 +3,5 @@
 __pycache__/
 trades.csv
 *.log
+*.session
+*.session-journal
