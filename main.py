@@ -63,6 +63,7 @@ HELP_TEXT = (
     "Places TWO pending orders — one at each entry price.\n\n"
     "Commands:\n"
     "  /status  — MT5 connection, balance & equity\n"
+    "  /open    — current open positions & pending orders\n"
     "  /trades  — last 5 executed trades\n"
     "  /help    — this message"
 )
@@ -100,6 +101,19 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_allowed(update):
         return
     await update.message.reply_text(HELP_TEXT)
+
+
+async def log_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    if chat:
+        logger.info("Incoming update — chat_id: %s | type: %s | name: %s",
+                    chat.id, chat.type, chat.title or chat.first_name or "N/A")
+
+
+async def cmd_open(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed(update):
+        return
+    await update.message.reply_text(trader.get_open_trades())
 
 
 async def cmd_trades(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -184,9 +198,11 @@ def main() -> None:
         .build()
     )
 
+    app.add_handler(MessageHandler(filters.ALL, log_chat_id), group=-1)
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("trades", cmd_trades))
+    app.add_handler(CommandHandler("open", cmd_open))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_alert))
 
     logger.info("Bot starting…")

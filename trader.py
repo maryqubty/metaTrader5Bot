@@ -162,6 +162,66 @@ def place_two_orders(action: str, price1: float, price2: float, tp: float, sl: f
     return results, "\n".join(lines)
 
 
+ORDER_TYPE_NAMES = {
+    mt5.ORDER_TYPE_BUY_LIMIT: "BUY LIMIT",
+    mt5.ORDER_TYPE_SELL_LIMIT: "SELL LIMIT",
+    mt5.ORDER_TYPE_BUY_STOP: "BUY STOP",
+    mt5.ORDER_TYPE_SELL_STOP: "SELL STOP",
+}
+
+
+def get_open_trades() -> str:
+    tick = mt5.symbol_info_tick(SYMBOL)
+    if tick is None:
+        return "Could not retrieve current price."
+
+    lines = []
+
+    positions = mt5.positions_get(symbol=SYMBOL)
+    if positions:
+        lines.append("OPEN POSITIONS")
+        lines.append("─" * 30)
+        for p in positions:
+            direction = "BUY" if p.type == mt5.ORDER_TYPE_BUY else "SELL"
+            current = tick.bid if direction == "SELL" else tick.ask
+            dist_tp = round(abs(p.tp - current), 2) if p.tp else None
+            dist_sl = round(abs(p.sl - current), 2) if p.sl else None
+            profit_sign = "+" if p.profit >= 0 else ""
+            lines.append(
+                f"#{p.ticket} {direction}\n"
+                f"  Entry:   {p.price_open:.2f}\n"
+                f"  Current: {current:.2f}\n"
+                f"  TP:      {p.tp:.2f}  ({dist_tp:.2f} away)\n"
+                f"  SL:      {p.sl:.2f}  ({dist_sl:.2f} away)\n"
+                f"  Profit:  {profit_sign}{p.profit:.2f}"
+            )
+
+    orders = mt5.orders_get(symbol=SYMBOL)
+    if orders:
+        if lines:
+            lines.append("")
+        lines.append("PENDING ORDERS")
+        lines.append("─" * 30)
+        current_price = tick.ask
+        for o in orders:
+            order_type = ORDER_TYPE_NAMES.get(o.type, str(o.type))
+            dist_entry = round(abs(o.price_open - current_price), 2)
+            dist_tp = round(abs(o.tp - o.price_open), 2) if o.tp else None
+            dist_sl = round(abs(o.sl - o.price_open), 2) if o.sl else None
+            lines.append(
+                f"#{o.ticket} {order_type}\n"
+                f"  Entry:   {o.price_open:.2f}  ({dist_entry:.2f} from current)\n"
+                f"  Current: {current_price:.2f}\n"
+                f"  TP:      {o.tp:.2f}  ({dist_tp:.2f} from entry)\n"
+                f"  SL:      {o.sl:.2f}  ({dist_sl:.2f} from entry)"
+            )
+
+    if not lines:
+        return "No open positions or pending orders for GOLD."
+
+    return "\n".join(lines)
+
+
 def get_status() -> str:
     if not mt5.terminal_info():
         return "MT5 is not connected."
