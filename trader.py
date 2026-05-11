@@ -126,6 +126,9 @@ def place_order(action: str, entry_price: float, tp: float, sl: float) -> tuple[
     if result.retcode in TRANSIENT_RETCODES:
         logger.warning("Transient error %d for entry %.2f — retrying", result.retcode, entry_price)
         result = mt5.order_send(request)
+        if result is None:
+            logger.error("order_send returned None on retry for entry %.2f", entry_price)
+            return False, "order_send returned None on retry — check MT5 connection."
 
     if result.retcode == mt5.TRADE_RETCODE_DONE:
         logger.info("Order placed: ticket=%d entry=%.2f tp=%.2f sl=%.2f", result.order, entry_price, tp, sl)
