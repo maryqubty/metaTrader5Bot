@@ -29,6 +29,11 @@ client = TelegramClient("forwarder", API_ID, API_HASH)
 
 async def make_handler(target):
     async def handler(event):
+        chat = await event.get_chat()
+        chat_id = getattr(chat, "id", "?")
+        chat_name = getattr(chat, "title", None) or getattr(chat, "username", None) or getattr(chat, "first_name", "?")
+        logger.info("Message received — chat_id: %s | name: %s", chat_id, chat_name)
+
         text = event.message.text or ""
         if not _ALERT_RE.search(text):
             return
