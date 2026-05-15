@@ -43,6 +43,17 @@ async def make_handler(target):
     return handler
 
 
+@client.on(events.NewMessage)
+async def log_all(event):
+    try:
+        chat = await event.get_chat()
+        chat_id = getattr(chat, "id", "?")
+        chat_name = getattr(chat, "title", None) or getattr(chat, "username", None) or getattr(chat, "first_name", "?")
+        logger.info("[ALL] chat_id: %s | name: %s | text: %.80s", chat_id, chat_name, event.message.text or "")
+    except Exception as e:
+        logger.warning("log_all error: %s", e)
+
+
 async def main():
     await client.start()
     me = await client.get_me()
